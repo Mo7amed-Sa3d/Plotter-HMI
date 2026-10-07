@@ -3,7 +3,7 @@
 import threading
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 
 from config import DEFAULT_FORCE_A, DEFAULT_FORCE_B, DEFAULT_SPEED
 from gcode_parser import parse_file, parse_text
@@ -20,7 +20,8 @@ from ui.screens.settings import SettingsScreen
 from ui.screens.usb import UsbScreen
 from ui.screens.test_cut import TestCutScreen
 from ui.screens.registration import RegistrationScreen
-
+from ui.widgets.virtual_keyboard import VirtualKeyboard, KeyboardFilter
+from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
 
 class MainWindow(QMainWindow):
     _dispatch = pyqtSignal(object)
@@ -44,6 +45,12 @@ class MainWindow(QMainWindow):
         self.usb = UsbScreen()
         self.test_cut = TestCutScreen()
         self.registration = RegistrationScreen()
+
+        # Virtual keyboard — child of the central widget so it overlays
+        # every screen without being part of any of them.
+        self.keyboard = VirtualKeyboard(self.centralWidget())
+        self.keyboard_filter = KeyboardFilter(self.keyboard)
+        QApplication.instance().installEventFilter(self.keyboard_filter)
 
         for w in (self.menu, self.jog, self.cutting, self.tools, self.speed,
                   self.settings, self.usb, self.test_cut, self.registration):
@@ -185,3 +192,8 @@ class MainWindow(QMainWindow):
     def _run_registration(self):
         QMessageBox.information(self, "Registration",
                                 "Registration scan is not yet wired to a camera.")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "keyboard"):
+            self.keyboard._reposition()

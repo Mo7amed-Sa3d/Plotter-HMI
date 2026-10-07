@@ -181,6 +181,37 @@ QStatusBar {{
 QDialog {{
     background-color: #1C1C1C;
 }}
+
+QFrame#virtual_keyboard {{
+    background-color: #1A1A1A;
+    border-top: 1px solid #333333;
+}}
+
+QPushButton#key {{
+    background-color: #2E2E2E;
+    border: 1px solid #3A3A3A;
+    border-radius: {radius_sm}px;
+    color: #E6E6E6;
+    font-size: {font_base}px;
+    font-weight: bold;
+}}
+QPushButton#key:pressed {{
+    background-color: #E8A33D;
+    color: #1C1C1C;
+}}
+
+QPushButton#key_action {{
+    background-color: #3A3A3A;
+    border: 1px solid #4A4A4A;
+    border-radius: {radius_sm}px;
+    color: #E6E6E6;
+    font-size: {font_sub}px;
+    font-weight: bold;
+}}
+QPushButton#key_action:pressed {{
+    background-color: #E8A33D;
+    color: #1C1C1C;
+}}
 """
 
 

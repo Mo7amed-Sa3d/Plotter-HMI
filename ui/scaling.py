@@ -36,12 +36,10 @@ class Scale:
         self.screen_w = geo.width()
         self.screen_h = geo.height()
 
-        # Decide orientation
-        if self.screen_h > self.screen_w * portrait_threshold:
+        if self.screen_h > self.screen_w:
             self.orientation = "portrait"
-            # Swap reference so a portrait screen uses the same
-            # design as a landscape one with the same diagonal.
-            ref_w, ref_h = ref_h, ref_w
+        else:
+            self.orientation = "landscape"
 
         sx = self.screen_w / ref_w
         sy = self.screen_h / ref_h
@@ -54,11 +52,9 @@ class Scale:
 
         self.factor = scale
 
-        # Base font: 10 pt at scale 1.0, scaled linearly.
-        # The screen's DPI is applied on top so high-DPI panels look right.
         dpi_scale = screen.logicalDotsPerInch() / 96.0
         self._base_font_pt = 10.0 * max(dpi_scale, 0.9)
-
+        
     # ---- Conversions ----
 
     def px(self, reference_px: float) -> int:

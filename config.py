@@ -35,8 +35,8 @@ WEB_PORT = 5000
 # The design was laid out for this resolution. Every dimension in the
 # app is expressed in these "reference pixels" and multiplied by the
 # actual scale factor at runtime.
-REF_WIDTH = 800
-REF_HEIGHT = 480
+REF_WIDTH = 480
+REF_HEIGHT = 800
 
 # Minimum and maximum scale. Prevents tiny UI on very small screens and
 # huge UI on 4K displays.
@@ -45,7 +45,7 @@ MAX_SCALE = 3.0
 
 # When the screen is portrait (or has a very tall aspect ratio), we
 # swap the reference so the design remains comfortable.
-PORTRAIT_THRESHOLD = 1.15    # if height/width > this, treat as portrait
+PORTRAIT_THRESHOLD = 1    # if height/width > this, treat as portrait
 
 # ---- UI ----
 FULLSCREEN = True
