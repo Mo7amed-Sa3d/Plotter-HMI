@@ -2,8 +2,9 @@
 
 import threading
 
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
+from PyQt5.QtCore import QTimer, pyqtSignal
+from PyQt5.QtWidgets import (QMainWindow, QStackedWidget, QMessageBox,
+                             QApplication)
 
 from config import DEFAULT_FORCE_A, DEFAULT_FORCE_B, DEFAULT_SPEED
 from gcode_parser import parse_file, parse_text
@@ -12,7 +13,6 @@ from machine import Machine
 from protocol import home_x, zero_x, zero_y, move_linear, pwm_off
 
 from ui.screens.menu import MenuScreen
-from ui.screens.jog import JogScreen
 from ui.screens.cutting import CuttingScreen, CuttingSettingsDialog
 from ui.screens.tools import ToolsScreen
 from ui.screens.speed import SpeedScreen
@@ -21,7 +21,7 @@ from ui.screens.usb import UsbScreen
 from ui.screens.test_cut import TestCutScreen
 from ui.screens.registration import RegistrationScreen
 from ui.widgets.virtual_keyboard import VirtualKeyboard, KeyboardFilter
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
+
 
 class MainWindow(QMainWindow):
     _dispatch = pyqtSignal(object)
@@ -36,8 +36,8 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
+        # Screens
         self.menu = MenuScreen()
-        self.jog = JogScreen()
         self.cutting = CuttingScreen()
         self.tools = ToolsScreen()
         self.speed = SpeedScreen()
@@ -46,21 +46,22 @@ class MainWindow(QMainWindow):
         self.test_cut = TestCutScreen()
         self.registration = RegistrationScreen()
 
-        # Virtual keyboard — child of the central widget so it overlays
-        # every screen without being part of any of them.
-        self.keyboard = VirtualKeyboard(self.centralWidget())
-        self.keyboard_filter = KeyboardFilter(self.keyboard)
-        QApplication.instance().installEventFilter(self.keyboard_filter)
-
-        for w in (self.menu, self.jog, self.cutting, self.tools, self.speed,
+        for w in (self.menu, self.cutting, self.tools, self.speed,
                   self.settings, self.usb, self.test_cut, self.registration):
             self.stack.addWidget(w)
 
         self.stack.setCurrentWidget(self.menu)
 
+        # Virtual keyboard
+        self.keyboard = VirtualKeyboard(self.centralWidget())
+        self.keyboard_filter = KeyboardFilter(self.keyboard)
+        QApplication.instance().installEventFilter(self.keyboard_filter)
+
+        # Status bar
         self.status = self.statusBar()
         self.status.showMessage("Idle")
 
+        # Periodic status refresh
         self.poll = QTimer(self)
         self.poll.setInterval(1000)
         self.poll.timeout.connect(self.machine.refresh_status)
@@ -77,40 +78,56 @@ class MainWindow(QMainWindow):
         self.job.set_force(0, DEFAULT_FORCE_A)
         self.job.set_force(1, DEFAULT_FORCE_B)
 
+    # ---- Signal wiring ----
+
     def _wire(self):
-        self.menu.jog_clicked.connect(lambda: self.stack.setCurrentWidget(self.jog))
-        self.menu.tools_clicked.connect(lambda: self.stack.setCurrentWidget(self.tools))
-        self.menu.speed_clicked.connect(lambda: self.stack.setCurrentWidget(self.speed))
-        self.menu.settings_clicked.connect(lambda: self.stack.setCurrentWidget(self.settings))
-        self.menu.usb_clicked.connect(lambda: self.stack.setCurrentWidget(self.usb))
-        self.menu.test_cut_clicked.connect(lambda: self.stack.setCurrentWidget(self.test_cut))
+        # Menu buttons
+        self.menu.tools_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.tools))
+        self.menu.speed_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.speed))
+        self.menu.settings_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.settings))
+        self.menu.usb_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.usb))
+        self.menu.test_cut_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.test_cut))
         self.menu.estop_clicked.connect(self._do_estop)
 
-        self.jog.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
-        self.jog.jog.connect(self._do_jog)
-        self.jog.home_and_zero.connect(self._do_home_zero)
+        # Jog pad on the main menu
+        self.menu.jog.connect(self._do_jog)
+        self.menu.home_and_zero.connect(self._do_home_zero)
 
-        self.tools.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
+        # Tools
+        self.tools.back_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.menu))
         self.tools.force_changed.connect(self._do_force)
 
-        self.speed.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
+        # Speed
+        self.speed.back_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.menu))
         self.speed.speed_changed.connect(self.job.set_speed)
 
-        self.settings.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
-        self.usb.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
+        # Settings / USB / Test cut / Registration
+        self.settings.back_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.menu))
+        self.usb.back_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.menu))
         self.usb.file_selected.connect(self._start_job)
-
-        self.test_cut.back_clicked.connect(lambda: self.stack.setCurrentWidget(self.menu))
+        self.test_cut.back_clicked.connect(
+            lambda: self.stack.setCurrentWidget(self.menu))
         self.test_cut.run_test.connect(self._run_test_cut)
-
         self.registration.back_clicked.connect(
             lambda: self.stack.setCurrentWidget(self.menu))
         self.registration.run_scan.connect(self._run_registration)
 
+        # Cutting controls
         self.cutting.pause_clicked.connect(self.job.pause)
         self.cutting.resume_clicked.connect(self.job.resume)
         self.cutting.cancel_clicked.connect(self._cancel_job)
         self.cutting.settings_clicked.connect(self._open_cutting_settings)
+
+    # ---- Callbacks from machine / job ----
 
     def _on_position(self, pos):
         self.status.showMessage(
@@ -134,12 +151,14 @@ class MainWindow(QMainWindow):
     def _on_job_progress(self, value):
         self.cutting.set_progress(value, self.job.current_index)
 
+    # ---- Command handlers ----
+
     def _do_jog(self, dx, dy):
         p = self.machine.position
-        if p is None:
-            return
-        self.machine.fire(move_linear(p.qx + dx, p.qy + dy,
-                                      self.job.speed_override))
+        base_x = p.qx if p else 0.0
+        base_y = p.qy if p else 0.0
+        self.machine.fire(
+            move_linear(base_x + dx, base_y + dy, self.job.speed_override))
 
     def _do_home_zero(self):
         self.machine.command(home_x())
@@ -192,6 +211,8 @@ class MainWindow(QMainWindow):
     def _run_registration(self):
         QMessageBox.information(self, "Registration",
                                 "Registration scan is not yet wired to a camera.")
+
+    # ---- Layout ----
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

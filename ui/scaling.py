@@ -53,8 +53,7 @@ class Scale:
         self.factor = scale
 
         dpi_scale = screen.logicalDotsPerInch() / 96.0
-        self._base_font_pt = 10.0 * max(dpi_scale, 0.9)
-        
+        self._base_font_pt = 10.0 * max(dpi_scale, 0.9)        
     # ---- Conversions ----
 
     def px(self, reference_px: float) -> int:
