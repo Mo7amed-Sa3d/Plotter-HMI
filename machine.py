@@ -7,9 +7,10 @@ from typing import Callable, Optional
 import serial
 
 from config import SERIAL_PORT, SERIAL_BAUD, SERIAL_TIMEOUT
-from protocol import parse_position, parse_sensors, Position, Sensors
-
-
+from protocol import (
+    parse_position, parse_sensors, Position, Sensors,
+    get_position, get_sensors,
+)
 class Machine:
     """Owns the serial link. Thread-safe. Calls callbacks on the Qt thread
     through the provided `dispatch` callable."""
