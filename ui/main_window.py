@@ -36,6 +36,10 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
+        self._jog_x = 0.0
+        self._jog_y = 0.0
+        self._jog_synced = False
+
         # Screens
         self.menu = MenuScreen()
         self.cutting = CuttingScreen()
@@ -130,9 +134,20 @@ class MainWindow(QMainWindow):
     # ---- Callbacks from machine / job ----
 
     def _on_position(self, pos):
-        self.status.showMessage(
-            f"X={pos.x:.2f}  Y={pos.y:.2f}  F={pos.f:.2f}  "
-            f"S1={int(pos.s1)} S2={int(pos.s2)} S3={int(pos.s3)}")
+        self.status.showMessage(...)
+
+        # Re-sync the local jog target from the firmware, but only when
+        # the queue has provably drained (physical == queued) and no job
+        # is running. Otherwise the local target is the truth and must
+        # not be overwritten by a stale reading.
+        if self.job.state in (JobState.RUNNING, JobState.PAUSED):
+            return
+        if abs(pos.x - pos.qx) > 0.01 or abs(pos.y - pos.qy) > 0.01:
+            return
+        self._jog_x = pos.qx
+        self._jog_y = pos.qy
+        self._jog_synced = True
+
 
     def _on_sensors(self, s):
         pass
@@ -155,15 +170,36 @@ class MainWindow(QMainWindow):
 
     def _do_jog(self, dx, dy):
         p = self.machine.position
-        base_x = p.qx if p else 0.0
-        base_y = p.qy if p else 0.0
+        if p is not None and not self._jog_synced:
+            # First press after a status response: seed from the firmware.
+            self._jog_x = p.qx
+            self._jog_y = p.qy
+            self._jog_synced = True
+
+        nx = self._jog_x + dx
+        ny = self._jog_y + dy
+
+        # Clamp to the firmware's soft limits.
+        if nx < JOG_MIN_X: nx = JOG_MIN_X
+        if nx > JOG_MAX_X: nx = JOG_MAX_X
+        if ny < JOG_MIN_Y: ny = JOG_MIN_Y
+        if ny > JOG_MAX_Y: ny = JOG_MAX_Y
+
+        if abs(nx - self._jog_x) < 1e-6 and abs(ny - self._jog_y) < 1e-6:
+            return
+
+        self._jog_x = nx
+        self._jog_y = ny
         self.machine.fire(
-            move_linear(base_x + dx, base_y + dy, self.job.speed_override))
+            move_linear(self._jog_x, self._jog_y, self.job.speed_override))
 
     def _do_home_zero(self):
         self.machine.command(home_x())
         self.machine.command(zero_x(0.0))
         self.machine.command(zero_y(0.0))
+        self._jog_x = 0.0
+        self._jog_y = 0.0
+        self._jog_synced = False
 
     def _do_force(self, channel, duty):
         self.job.set_force(channel, duty)
